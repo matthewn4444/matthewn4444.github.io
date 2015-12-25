@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+  <head>
+<style type="text/css">
+  @import url(https://fonts.googleapis.com/css?family=Roboto);
+
+  body {
+    font-family: "Roboto", serif;
+    color: #444;
+    border: 0px;
+    margin: 0px;
+    overflow: hidden !important;
+    background: white;
+  }
+  video {
+    height: 100%;
+    width: 100%;
+  }
+  #video-area {
+    position: fixed;
+    left:0;
+    top:0;
+    width: 100%;
+    height: 100%;
+    margin: auto auto;
+    overflow: hidden !important;
+  }
+  .intro {
+    font-size: 40px;
+    margin: 0 auto;
+    text-align: center;
+    margin-top: 15%;
+    width: 100%;
+    height: 100%;
+  }
+  .logo {
+    width: 300px;
+    height: 300px;
+  }
+</style>
+<link href='libjass.css' rel='stylesheet'/>
+<link href='style.css' rel='stylesheet'/>
+<script type="text/javascript"
+    src="//www.gstatic.com/cast/sdk/libs/receiver/2.0.0/cast_receiver.js">
+</script>
+<script type="text/javascript" src="jquery-2.1.4.min.js"></script>
+<script type="text/javascript" src="libjass.js"></script>
+<script type="text/javascript" src="ssaplayer.js"></script>
+<title>Cast Simple Receiver</title>
+</head>
+  <body>
+    <span id='font-preloader' style='position:fixed;visiblity:hidden;'></span>
+    <section class='intro'>
+        <h1>Melon Pan</h1>
+        <img class='logo' src="icon.png"/>
+    </section>
+     <section id='video-area'>
+        <video id='vid' />
+    </section>
+
+<script type="text/javascript">
+
+window.onload = function() {
+//cast.receiver.logger.setLevelValue(cast.receiver.LoggerLevel.DEBUG);
+
+    // Start the system
+    console.log('Application is ready, starting system');
+    window.mediaElement = document.getElementById('vid');
+    window.mediaManager = new cast.receiver.MediaManager(window.mediaElement);
+    window.castReceiverManager = cast.receiver.CastReceiverManager.getInstance();
+
+    $(window.mediaElement).on("loadstart", function() {
+        $("#video-area").css("background-color", "black");
+        document.body.style.backgroundColor = "black";
+    });
+
+    $(window.mediaElement).on("abort ended error stalled", function(e) {
+        console.log(e);
+        $("#video-area").css("background-color", "");
+        document.body.style.backgroundColor = "white";
+    });
+
+    // Handle Subtitles
+    window.messageBus = window.castReceiverManager.getCastMessageBus('urn:x-cast:com.melonpan.messages');
+    window.messageBus.onMessage = function(event) {
+        try {
+            var data = JSON.parse(event.data);
+            if (data.action == "new.subtitle.player") {
+                // Remove the old player and add a new one
+                if (window.subtitlePlayer) {
+                    window.subtitlePlayer.remove();
+                }
+                window.subtitlePlayer = new SSAPlayer({ video: window.mediaElement });
+            } else if (data.action == "set.subtitles.header") {
+                // This is new ssa subtitle track
+                window.subtitlePlayer.newTrack("track_" + data.number, data.header);
+            } else if (data.action == "add.subtitles") {
+                // Add subtitles streamed from sender app
+                for (var i = 0; i < data.tracks.length; i++) {
+                    window.subtitlePlayer.addSubtitleEvent("track_" + data.number, data.tracks[i]);
+                }
+            } else if (data.action == "select.subtitles.track") {
+                if (data.hasOwnProperty("number")) {
+                    window.subtitlePlayer.selectTrack("track_" + data.number);
+                } else {
+                    // Hide subtitles
+                    window.subtitlePlayer.selectTrack("");
+                }
+            } else if (data.action == "preload.font") {
+                // Preload each font; add the font into each element to start preloading
+                for (var i = 0; i < data.fonts.length; i++) {
+                    var fontData = data.fonts[i];
+                    $("head").append($("<style>").text("@font-face{font-family:'" + fontData.name + "';src:url('" + fontData.url + "') format('truetype');}"));
+                    var el = document.createElement("span");
+                    el.style.fontFamily = fontData.name;
+                    document.getElementById("font-preloader").appendChild(el);
+                }
+            }
+        } catch(e) {
+            console.error(e);
+        }
+    }
+
+    castReceiverManager.start({maxInactivity: 600});
+
+    // Disconnect if no senders
+    window.castReceiverManager.onSenderDisconnected = function(event) {
+    if(window.castReceiverManager.getSenders().length == 0 &&
+        event.reason == cast.receiver.system.DisconnectReason.REQUESTED_BY_SENDER) {
+            window.close();
+        }
+    }
+};
+</script>
+  </body>
+</html>
+

@@ -1,0 +1,12 @@
+{
+  "name": "melon-pan-cast-receiver-app",
+  "version": "0.1.0",
+  "description": "Cast receiver app for melon pan app",
+  "repository": {
+    "type": "git"
+  },
+  "dependencies": {
+    "serve-static": "1.10.x",
+    "finalhandler": "0.4.x"
+  }
+}
