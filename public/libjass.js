@@ -320,7 +320,7 @@
                     parent.pop();
                     return null;
                 }
-                current.value = new parts.Text(" ");
+                current.value = new parts.Text(" ");
                 return current;
             };
             /**
@@ -5781,7 +5781,7 @@
                         currentSpan.appendChild(currentDrawingStyles.toSVG(part, currentSpanStyles.primaryColor.withAlpha(currentSpanStyles.primaryAlpha)));
                         startNewSpan(false);
                     } else if (part instanceof parts.Text) {
-                        currentSpan.appendChild(document.createTextNode(part.value));
+                        currentSpan.appendChild(document.createTextNode(part.value.trim()));
                         startNewSpan(false);
                     } else if (settings_1.debugMode && part instanceof parts.Comment) {
                         currentSpan.appendChild(document.createTextNode(part.value));
@@ -6008,6 +6008,7 @@
          */
         var SpanStyles = function () {
             function SpanStyles(renderer, dialogue, scaleX, scaleY, settings, fontSizeElement, svgDefsElement) {
+                this._alignment = dialogue.alignment;
                 this._scaleX = scaleX;
                 this._scaleY = scaleY;
                 this._settings = settings;
@@ -6078,12 +6079,13 @@
                 }
                 var fontSize;
                 if (isTextOnlySpan) {
-                    fontSize = (this._scaleY * SpanStyles._getFontSize(this._fontName, this._fontSize * this._fontScaleY, this._fontSizeElement)).toFixed(3);
+                    // Calculate the font size with the actual text; fixes custom fonts subs use
+                    this._fontSizeElement.childNodes[0].nodeValue = span.childNodes[0].nodeValue;
+                    fontSize = (this._scaleY * SpanStyles._getFontSize(this._fontName, this._fontSize * this._fontScaleX, this._fontSizeElement)).toFixed(3);
                 } else {
                     fontSize = (this._scaleY * SpanStyles._getFontSize(this._fontName, this._fontSize, this._fontSizeElement)).toFixed(3);
                 }
-                var lineHeight = (this._scaleY * this._fontSize).toFixed(3);
-                span.style.font = "" + fontStyleOrWeight + fontSize + "px/" + lineHeight + 'px "' + this._fontName + '"';
+                span.style.font = '' + fontStyleOrWeight + fontSize + 'px "' + this._fontName + '"';
                 var textDecoration = "";
                 if (this._underline) {
                     textDecoration = "underline";
@@ -6120,13 +6122,14 @@
                     transform += "matrix(1, " + skewY + ", " + skewX + ", 1, 0, 0) ";
                 }
                 if (transform !== "") {
+                    var transformOrigin = libjass.renderers.WebRenderer._transformOrigins[this._alignment];
+                    var transformOriginString = transformOrigin[0] + "% " + transformOrigin[1] + "%";
                     span.style.webkitTransform = transform;
-                    span.style.webkitTransformOrigin = "50% 50%";
+                    span.style.webkitTransformOrigin = transformOriginString;
                     span.style.transform = transform;
-                    span.style.transformOrigin = "50% 50%";
+                    span.style.transformOrigin = transformOriginString;
                     span.style.display = "inline-block";
                 }
-                span.style.letterSpacing = (this._scaleX * this._letterSpacing).toFixed(3) + "px";
                 var primaryColor = this._primaryColor.withAlpha(this._primaryAlpha);
                 span.style.color = primaryColor.toString();
                 var outlineColor = this._outlineColor.withAlpha(this._outlineAlpha);
@@ -6134,7 +6137,18 @@
                 var outlineHeight = this._scaleY * this._outlineHeight;
                 var outlineFilter = "";
                 var blurFilter = "";
+                var spacingFromOutline = this._gaussianBlur == 0 ? outlineWidth / 3.0 : 0;
+                span.style.letterSpacing = (this._scaleX * this._letterSpacing + spacingFromOutline).toFixed(3) + "px";
                 if (this._settings.enableSvg) {
+                    // This fixes primary color with opacity using an svg filter shows text with wrong color
+                    function colorBlend(p, from, to) {
+                        var f = [from.red, from.green, from.blue];
+                        var t = [to.red, to.green, to.blue];
+                        var i=parseInt,r=Math.round,h=from.length>9,h=typeof(to)=="string"?to.length>9?true:to=="c"?!h:false:h,b=p<0,p=b?p*-1:p,to=to&&to!="c"?to:b?"#000000":"#FFFFFF";
+                        return "#"+(0x100000000+(f[3]>-1&&t[3]>-1?r(((t[3]-f[3])*p+f[3])*255):t[3]>-1?r(t[3]*255):f[3]>-1?r(f[3]*255):255)*0x1000000+r((t[0]-f[0])*p+f[0])*0x10000+r((t[1]-f[1])*p+f[1])*0x100+r((t[2]-f[2])*p+f[2])).toString(16).slice(f[3]>-1||t[3]>-1?1:3);
+                    }
+                    span.style.color = colorBlend(primaryColor.alpha, outlineColor, primaryColor);
+
                     var filterId = "svg-filter-" + this._id + "-" + this._nextFilterId++;
                     if (outlineWidth > 0 || outlineHeight > 0) {
                         /* Construct an elliptical border by merging together many rectangles. The border is creating using dilate morphology filters, but these only support
@@ -6168,6 +6182,9 @@
                                 }
                             }
                         })(function (x, y) {
+                            // Adjust the outline to be a bit stronger like aegisub
+                            x *= 1.2;
+                            y *= 1.2;
                             outlineFilter += '	<feMorphology in="SourceAlpha" operator="dilate" radius="' + x.toFixed(3) + " " + y.toFixed(3) + '" result="outline' + outlineNumber + '" />\n';
                             mergeOutlinesFilter += '		<feMergeNode in="outline' + outlineNumber + '" />\n';
                             outlineNumber++;
@@ -6211,6 +6228,11 @@
                     var filterString = '<filter xmlns="http://www.w3.org/2000/svg" id="' + filterId + '" x="-50%" width="200%" y="-50%" height="200%">\n' + outlineFilter + "\n" + blurFilter + '\n	<feMerge>\n		<feMergeNode />\n		<feMergeNode in="SourceGraphic" />\n	</feMerge>\n</filter>\n';
                     var filterElement = dom_parser_1.domParser.parseFromString(filterString, "image/svg+xml").childNodes[0];
                     this._svgDefsElement.appendChild(filterElement);
+
+                    // Apply the filter on the span if there was a transform (like skew)
+                    if (transform != "") {
+                        span.style.webkitFilter = 'url("#' + filterId + '")';
+                    }
                     filterWrapperSpan.style.webkitFilter = 'url("#' + filterId + '")';
                     filterWrapperSpan.style.filter = 'url("#' + filterId + '")';
                 }
@@ -6237,7 +6259,8 @@
              */
             SpanStyles.prototype.makeNewLine = function () {
                 var result = document.createElement("br");
-                result.style.lineHeight = (this._scaleY * this._fontSize).toFixed(3) + "px";
+                // 0.5 is a hack for aegisub type rendering
+                result.style.lineHeight = (0.5  * this._scaleY * this._fontSize).toFixed(3) + "px";
                 return result;
             };
             Object.defineProperty(SpanStyles.prototype, "italic", {
