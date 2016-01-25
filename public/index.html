@@ -65,6 +65,21 @@
     color:white;
     text-shadow: 0 0 5px rgba(0, 0, 0, 0.8);
   }
+  /* Error Message */
+  #error {
+    position:fixed;
+    background:#999;
+    color:white;
+    top:-100px;
+    left:50%;
+    padding: 20px;
+    font-size:25px;
+    transform: translateX(-50%);
+    box-shadow: 7px 7px 0 #DDD;
+    width:650px;
+    text-align:center;
+  }
+
 </style>
 <script type="text/javascript"
     src="//www.gstatic.com/cast/sdk/libs/receiver/2.0.0/cast_receiver.js">
@@ -101,9 +116,9 @@
             <span class='center' id='progress'>40%</span>
         </div>
     </section>
+    <div id='error'></div>
 
 <script type="text/javascript">
-
 var BUFFER_END_TIMEOUT = 50;
 
 function showBufferAnimation() {
@@ -116,7 +131,7 @@ function showBufferAnimation() {
 function hideBufferAnimation() {
     window.isBuffering = false;
     if ($("#buffer").is(":visible")) {
-        $("#buffer").fadeOut(150, function() {
+        $("#buffer").fadeOut(200, function() {
             $(document.body).removeClass("preload");
         });
     }
@@ -145,6 +160,21 @@ window.onload = function() {
     $(window.mediaElement).on("abort ended error", function(e) {
         console.log(e);
         $("#video-area").hide();
+    });
+
+    $(window.mediaElement).on("error", function(e) {
+        if (e.target.error) {
+            switch (e.target.error.code) {
+                case e.target.error.MEDIA_ERR_DECODE:
+                case e.target.error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                case e.target.error.MEDIA_ERR_ABORTED:
+                case e.target.error.MEDIA_ERR_NETWORK:
+                    break;
+                default:
+                    window.close();
+                    break;
+            }
+        }
     });
 
     // Handle Subtitles
@@ -182,6 +212,13 @@ window.onload = function() {
                     el.style.fontFamily = fontData.name;
                     document.getElementById("font-preloader").appendChild(el);
                 }
+            } else if (data.action == "player.error") {
+                // Ends the video and shows errors to the user
+                $("#error").text(data.message).animate({top: "40px"}, 400);
+                $("#video-area").hide();
+                setTimeout(function(){
+                    $("#error").animate({top: "-100px"}, 400);
+                }, 8000);
             }
 
             // Streaming related events
