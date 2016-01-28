@@ -159,7 +159,7 @@ window.onload = function() {
 
     $(window.mediaElement).on("abort ended error", function(e) {
         console.log(e);
-        $("#video-area").hide();
+        $("#video-area").fadeOut(200);
     });
 
     $(window.mediaElement).on("error", function(e) {
@@ -215,10 +215,12 @@ window.onload = function() {
             } else if (data.action == "player.error") {
                 // Ends the video and shows errors to the user
                 $("#error").text(data.message).animate({top: "40px"}, 400);
-                $("#video-area").hide();
+                $("#video-area").fadeOut(200);
                 setTimeout(function(){
                     $("#error").animate({top: "-100px"}, 400);
                 }, 8000);
+            } else if (data.action == "player.hide") {
+                $("#video-area").fadeOut(200);
             }
 
             // Streaming related events
