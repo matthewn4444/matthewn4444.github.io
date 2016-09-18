@@ -42,6 +42,7 @@ window.onload = function() {
     window.castReceiverManager = cast.receiver.CastReceiverManager.getInstance();
 
     $(window.mediaElement).on("loadstart", function() {
+        window.isPreloading = false;
         hideBufferAnimation();
         if (!$("#video-area").is(":visible")) {
             $("#video-area").fadeIn();
@@ -54,6 +55,7 @@ window.onload = function() {
     });
 
     $(window.mediaElement).on("error", function(e) {
+        $("#video-area").fadeOut(200);
         if (e.target.error) {
             switch (e.target.error.code) {
                 case e.target.error.MEDIA_ERR_DECODE:
@@ -118,6 +120,7 @@ window.onload = function() {
                 // Preload the video backdrop for torrent
                 $("body").addClass("preload");
                 $("#video-area").fadeIn(500, showBufferAnimation);
+                window.isPreloading = true;
             } else if (data.action == "buffer.start" && !$("#buffer").is(":visible")) {
                 showBufferAnimation();
 
@@ -145,13 +148,16 @@ window.onload = function() {
                 var percent = parseInt(data.percentage, 10);
 
                 // Apply a hack that would ask the app for more data if chromecast stalls on seek
-                if (percent >= 100 && window.isBuffering) {
+                if (percent >= 100 && window.isBuffering && window.isPreloading) {
                     if (window.seekPokeTimer) {
                         clearInterval(window.seekPokeTimer);
                     }
                     window.seekPokeTimer = setInterval(function() {
-                        window.mediaElement.pause();
-                        window.mediaElement.play();
+                        try {
+                            window.mediaElement.play().then(window.mediaElement.pause);
+                        } catch (e) {
+                            console.warn(e);
+                        }
                     }, 1000);
                 }
 
