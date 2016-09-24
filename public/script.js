@@ -47,6 +47,7 @@ window.onload = function() {
         if (!$("#video-area").is(":visible")) {
             $("#video-area").fadeIn();
         }
+        window.mediaElement.play();
     });
 
     $(window.mediaElement).on("abort ended error", function(e) {
@@ -122,6 +123,7 @@ window.onload = function() {
                 $("#video-area").fadeIn(500, showBufferAnimation);
                 window.isPreloading = true;
             } else if (data.action == "buffer.start" && !$("#buffer").is(":visible")) {
+                console.log("buffer");
                 showBufferAnimation();
 
                 // Run an interval to see when the video has finished buffering and starts to play
@@ -171,7 +173,7 @@ window.onload = function() {
         }
     }
 
-    castReceiverManager.start({maxInactivity: 600});
+    castReceiverManager.start();
 
     // Disconnect if no senders
     window.castReceiverManager.onSenderDisconnected = function(event) {
