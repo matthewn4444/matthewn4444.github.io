@@ -27,9 +27,9 @@ function hideBufferAnimation() {
 function newPlayer() {
     // Remove the old player and add a new one
     if (window.subtitlePlayer) {
-        window.subtitlePlayer.remove();
+        window.subtitlePlayer.destroy();
     }
-    window.subtitlePlayer = new SSAPlayer({ video: window.mediaElement });
+    window.subtitlePlayer = new SubPlayer(window.mediaElement);
 }
 
 window.onload = function() {
@@ -81,12 +81,12 @@ window.onload = function() {
             } else if (data.action == "set.subtitles.header") {
                 // This is new ssa subtitle track
                 if (!window.subtitlePlayer) newPlayer();
-                window.subtitlePlayer.newTrack("track_" + data.number, data.header);
+                window.subtitlePlayer.createTrack("track_" + data.number, data.header);
             } else if (data.action == "add.subtitles") {
                 // Add subtitles streamed from sender app
                 if (!window.subtitlePlayer) newPlayer();
                 for (var i = 0; i < data.tracks.length; i++) {
-                    window.subtitlePlayer.addSubtitleEvent("track_" + data.number, data.tracks[i]);
+                    window.subtitlePlayer.addDialogue("track_" + data.number, data.tracks[i]);
                 }
             } else if (data.action == "select.subtitles.track") {
                 if (!window.subtitlePlayer) newPlayer();
@@ -94,7 +94,7 @@ window.onload = function() {
                     window.subtitlePlayer.selectTrack("track_" + data.number);
                 } else {
                     // Hide subtitles
-                    window.subtitlePlayer.selectTrack("");
+                    window.subtitlePlayer.selectTrack();
                 }
             } else if (data.action == "preload.font") {
                 // Preload each font; add the font into each element to start preloading
