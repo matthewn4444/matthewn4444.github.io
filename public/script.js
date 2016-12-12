@@ -1,3 +1,4 @@
+var CUSTOM_DATA_CAN_FULLY_STOP_PLAYBACK = "custom.data.can.fully.stop.playback";
 function showBufferAnimation() {
     if (!$("#buffer").is(":visible")) {
         $("#progress").text("0%");
@@ -8,18 +9,12 @@ function showBufferAnimation() {
 }
 
 function hideBufferAnimation() {
-try {
     window.isBuffering = false;
     if ($("#buffer").is(":visible")) {
         $("#buffer").fadeOut(200, function() {
             $(document.body).removeClass("preload");
         });
     }
-    if (window.seekPokeTimer) {
-        clearInterval(window.seekPokeTimer);
-        window.seekPokeTimer = null;
-    }
-    } catch (e) {console.log(e)}
 }
 
 function newPlayer() {
@@ -27,6 +22,7 @@ function newPlayer() {
     if (window.subtitlePlayer) {
         window.subtitlePlayer.destroy();
     }
+    window.lastBufferPercent = 0;
     window.subtitlePlayer = new SubPlayer(window.mediaElement);
 }
 
@@ -39,17 +35,42 @@ window.onload = function() {
     window.mediaManager = new cast.receiver.MediaManager(window.mediaElement);
     window.castReceiverManager = cast.receiver.CastReceiverManager.getInstance();
 
+    // Override stop to force it to send original custom data back
+    window.mediaManager.onStop = function(e) {
+        window.finishedDownloaded = false;
+
+        // Prevent fade when going to a new video
+        if (e.data.customData && !e.data.customData[CUSTOM_DATA_CAN_FULLY_STOP_PLAYBACK]) {
+            window.preventStopFadeOut = true;
+        }
+
+        // Original function with the custom data
+        window.mediaManager.resetMediaElement(
+            cast.receiver.media.IdleReason.CANCELLED, true, e.data.requestId,
+            e.data.customData);
+
+        // Destroy the current player
+        if (window.subtitlePlayer) {
+            window.subtitlePlayer.destroy();
+            window.subtitlePlayer = null;
+        }
+     }
+
     $(window.mediaElement).on("loadstart", function() {
         window.isPreloading = false;
         if (!$("#video-area").is(":visible")) {
             $("#video-area").fadeIn();
         }
         window.mediaElement.play();
+        window.preventStopFadeOut = false;
     });
 
     $(window.mediaElement).on("abort ended error", function(e) {
         console.log(e);
-        $("#video-area").fadeOut(200);
+        if (!window.preventStopFadeOut) {
+            $("#video-area").fadeOut(200);
+        }
+        window.preventStopFadeOut = false;
     });
 
     $(window.mediaElement).on("playing", function(e) {
@@ -57,11 +78,17 @@ window.onload = function() {
     });
 
     $(window.mediaElement).on("waiting", function(e) {
-        showBufferAnimation();
+        if (!window.finishedDownloaded) {
+            showBufferAnimation();
+        }
     });
 
     $(window.mediaElement).on("error", function(e) {
         $("#video-area").fadeOut(200);
+        if (window.subtitlePlayer) {
+            window.subtitlePlayer.destroy();
+            window.subtitlePlayer = null;
+        }
         if (e.target.error) {
             switch (e.target.error.code) {
                 case e.target.error.MEDIA_ERR_DECODE:
@@ -81,9 +108,7 @@ window.onload = function() {
     window.messageBus.onMessage = function(event) {
         try {
             var data = JSON.parse(event.data);
-            if (data.action == "new.subtitle.player") {
-                newPlayer();
-            } else if (data.action == "set.subtitles.header") {
+            if (data.action == "set.subtitles.header") {
                 // This is new ssa subtitle track
                 if (!window.subtitlePlayer) newPlayer();
                 window.subtitlePlayer.createTrack("track_" + data.number, data.header);
@@ -119,6 +144,8 @@ window.onload = function() {
                 }, 8000);
             } else if (data.action == "player.hide") {
                 $("#video-area").fadeOut(200);
+            } else if (data.action == "finished.download") {
+                window.finishedDownloaded = true;
             }
 
             // Streaming related events
@@ -127,7 +154,8 @@ window.onload = function() {
                 $("body").addClass("preload");
                 $("#video-area").fadeIn(500, showBufferAnimation);
                 window.isPreloading = true;
-            } else if (data.action == "buffer.start" && !$("#buffer").is(":visible")) {
+                window.lastBufferPercent = 0;
+                window.finishedDownloaded = false;
             } else if (data.action == "buffer.precentage") {
                 // Never show 100% because it could be waiting a little longer
                 // Also never show a lower number than what is already being shown

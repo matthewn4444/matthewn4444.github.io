@@ -110,6 +110,7 @@
         this.video = video;
         this.wrapper = document.createElement("div");
         this.tracks = {};
+        this.__videoReadyFn = null;
 
         // Attach events
         if (typeof document.fullScreen !== "undefined") {
@@ -128,12 +129,13 @@
         // If video is not loaded yet, save the track creation till later
         if (this.video.readyState != 4) {
             this.pendingTracks = [];
-            this.video.addEventListener("loadeddata", this.__videoReady.bind(this), false);
+            this.__videoReadyFn = this.__videoReady.bind(this);
+            this.video.addEventListener("loadeddata", this.__videoReadyFn);
         }
     }
     SubPlayer.prototype.__videoReady = function() {
         if (this.video) {
-            this.video.removeEventListener("loadeddata", this.__videoReady.bind(this), false);
+            this.video.removeEventListener("loadeddata", this.__videoReadyFn);
             if (this.video.readyState != 4) {
                 throw new Error("Video is incorrect state even though it loaded its data");
             }
