@@ -111,14 +111,15 @@
         this.wrapper = document.createElement("div");
         this.tracks = {};
         this.__videoReadyFn = null;
+        this.__resizeFn = this.__resize.bind(this);
 
         // Attach events
         if (typeof document.fullScreen !== "undefined") {
-            this.video.addEventListener('fullscreenchange', this.__resize.bind(this), false);
+            this.video.addEventListener('fullscreenchange', this.__resizeFn, false);
         } else if (typeof document.webkitIsFullScreen !== "undefined") {
-            this.video.addEventListener('webkitfullscreenchange', this.__resize.bind(this), false);
+            this.video.addEventListener('webkitfullscreenchange', this.__resizeFn, false);
         } else if (typeof document.mozFullScreen !== "undefined") {
-            this.video.addEventListener('mozfullscreenchange', this.__resize.bind(this), false);
+            this.video.addEventListener('mozfullscreenchange', this.__resizeFn, false);
         }
 
         // Setup wrapper
@@ -195,13 +196,13 @@
         this.wrapper.remove();
 
         // Remove Events
-        this.video.removeEventListener("loadeddata", this.__videoReady.bind(this), false);
+        this.video.removeEventListener("loadeddata", this.__videoReadyFn);
         if (typeof document.fullScreen !== "undefined") {
-            this.video.removeEventListener('fullscreenchange', this.__resize.bind(this), false);
+            this.video.removeEventListener('fullscreenchange', this.__resizeFn, false);
         } else if (typeof document.webkitIsFullScreen !== "undefined") {
-            this.video.removeEventListener('webkitfullscreenchange', this.__resize.bind(this), false);
+            this.video.removeEventListener('webkitfullscreenchange', this.__resizeFn, false);
         } else if (typeof document.mozFullScreen !== "undefined") {
-            this.video.removeEventListener('mozfullscreenchange', this.__resize.bind(this), false);
+            this.video.removeEventListener('mozfullscreenchange', this.__resizeFn, false);
         }
 
         // Remove data
