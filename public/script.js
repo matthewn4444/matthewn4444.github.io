@@ -21,6 +21,7 @@ function newPlayer() {
     // Remove the old player and add a new one
     if (window.subtitlePlayer) {
         window.subtitlePlayer.destroy();
+        window.subtitlePlayer = null;
     }
     window.lastBufferPercent = 0;
     window.subtitlePlayer = new SubPlayer(window.mediaElement);
@@ -108,7 +109,9 @@ window.onload = function() {
     window.messageBus.onMessage = function(event) {
         try {
             var data = JSON.parse(event.data);
-            if (data.action == "set.subtitles.header") {
+            if (data.action == "new.subtitle.player") {
+                newPlayer();
+            } else if (data.action == "set.subtitles.header") {
                 // This is new ssa subtitle track
                 if (!window.subtitlePlayer) newPlayer();
                 window.subtitlePlayer.createTrack("track_" + data.number, data.header);
