@@ -159,6 +159,7 @@ window.onload = function() {
                 window.isPreloading = true;
                 window.lastBufferPercent = 0;
                 window.finishedDownloaded = false;
+                $("#progress").text("0%");
             } else if (data.action == "buffer.precentage") {
                 // Never show 100% because it could be waiting a little longer
                 // Also never show a lower number than what is already being shown
