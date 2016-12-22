@@ -62,7 +62,13 @@ window.onload = function() {
         if (!$("#video-area").is(":visible")) {
             $("#video-area").fadeIn();
         }
-        window.mediaElement.play();
+
+        // Play video
+        setTimeout(function () {
+            if (window.mediaElement.paused) {
+                window.mediaElement.play();
+            }
+        }, 150);
         window.preventStopFadeOut = false;
     });
 
