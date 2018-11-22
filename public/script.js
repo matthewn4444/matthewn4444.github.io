@@ -17,16 +17,6 @@ function hideBufferAnimation() {
     }
 }
 
-function newPlayer() {
-    // Remove the old player and add a new one
-    if (window.subtitlePlayer) {
-        window.subtitlePlayer.destroy();
-        window.subtitlePlayer = null;
-    }
-    window.lastBufferPercent = 0;
-    window.subtitlePlayer = new SubPlayer(window.mediaElement);
-}
-
 window.onload = function() {
 //cast.receiver.logger.setLevelValue(cast.receiver.LoggerLevel.DEBUG);
 
@@ -35,6 +25,7 @@ window.onload = function() {
     window.mediaElement = document.getElementById('vid');
     window.mediaManager = new cast.receiver.MediaManager(window.mediaElement);
     window.castReceiverManager = cast.receiver.CastReceiverManager.getInstance();
+    window.subtitlePlayer = new SubPlayer(window.mediaElement);
 
     // Override stop to force it to send original custom data back
     window.mediaManager.onStop = function(e) {
@@ -52,8 +43,7 @@ window.onload = function() {
 
         // Destroy the current player
         if (window.subtitlePlayer) {
-            window.subtitlePlayer.destroy();
-            window.subtitlePlayer = null;
+            window.subtitlePlayer.reset();
         }
      }
 
@@ -93,8 +83,7 @@ window.onload = function() {
     $(window.mediaElement).on("error", function(e) {
         $("#video-area").fadeOut(200);
         if (window.subtitlePlayer) {
-            window.subtitlePlayer.destroy();
-            window.subtitlePlayer = null;
+            window.subtitlePlayer.reset();
         }
         if (e.target.error) {
             switch (e.target.error.code) {
@@ -115,41 +104,36 @@ window.onload = function() {
     window.messageBus.onMessage = function(event) {
         try {
             var data = JSON.parse(event.data);
-            if (data.action == "new.subtitle.player") {
-                newPlayer();
-            } else if (data.action == "set.subtitles.header") {
+            //if (data.action == "new.subtitle.player") {
+            if (data.action == "set.subtitles.header") {
                 // This is new ssa subtitle track
-                if (!window.subtitlePlayer) newPlayer();
-                window.subtitlePlayer.createTrack("track_" + data.number, data.header);
+                window.lastBufferPercent = 0;
+                window.subtitlePlayer.createTrack("track_" + data.number, { subContent: data.header, debug: true });
             } else if (data.action == "add.subtitles") {
                 // Add subtitles streamed from sender app
-                if (!window.subtitlePlayer) newPlayer();
-                for (var i = 0; i < data.tracks.length; i++) {
-                    window.subtitlePlayer.addDialogue("track_" + data.number, data.tracks[i]);
+                let track = window.subtitlePlayer.getTrack("track_" + data.number);
+                if (track) {
+                    data.tracks.forEach(data => {
+                        track.addDialogEvent(data);
+                    });
                 }
             } else if (data.action == "select.subtitles.track") {
-                if (!window.subtitlePlayer) newPlayer();
                 if (data.hasOwnProperty("number")) {
                     window.subtitlePlayer.selectTrack("track_" + data.number);
                 } else {
                     // Hide subtitles
-                    window.subtitlePlayer.selectTrack();
+                    window.subtitlePlayer.hideAllTracks();
                 }
             } else if (data.action == "preload.font") {
-                // Preload each font; add the font into each element to start preloading
-                for (var i = 0; i < data.fonts.length; i++) {
-                    var fontData = data.fonts[i];
-                    $("head").append($("<style>").text("@font-face{font-family:'" + fontData.name + "';src:url('" + fontData.url + "') format('truetype');}"));
-                    var el = document.createElement("span");
-                    el.style.fontFamily = fontData.name;
-                    document.getElementById("font-preloader").appendChild(el);
-                }
+                data.fonts.forEach(font => {
+                    window.subtitlePlayer.addFont(font.url);
+                })
             } else if (data.action == "player.error") {
                 // Ends the video and shows errors to the user
                 $("#error").text(data.message).animate({top: "40px"}, 400);
                 $("#video-area").fadeOut(200);
                 setTimeout(function(){
-                    $("#error").animate({top: "-100px"}, 400);
+                    $("#error").animate({top: "-150px"}, 400);
                 }, 8000);
             } else if (data.action == "player.hide") {
                 $("#video-area").fadeOut(200);
