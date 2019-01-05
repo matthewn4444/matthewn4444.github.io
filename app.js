@@ -8,4 +8,4 @@ var serve = serveStatic("public", {'index': 'index.html'});
 http.createServer(function(req, res) {
     var done = finalhandler(req, res);
     serve(req, res, done);
-}).listen(process.env.PORT || 1111);;
+}).listen(process.env.PORT || 1112);
